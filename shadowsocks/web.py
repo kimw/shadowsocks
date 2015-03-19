@@ -126,7 +126,8 @@ class PlaneConfigHandler(BaseHandler):
                     _config["password"], _config["server"], _config["port"])
                 b64str = base64.b64encode(constr.encode("utf-8")).decode("utf-8")
                 items += [(_config, constr, b64str)]
-        self.write('<pre>%s</pre>' % items)
+        from pprint import pformat
+        self.write('<pre>%s</pre>' % pformat(items))
 
 
 class ControlHandler(BaseHandler):
