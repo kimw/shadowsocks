@@ -25,6 +25,7 @@ import signal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../'))
 from shadowsocks import shell, daemon, eventloop, tcprelay, udprelay, asyncdns
+import web
 
 
 def main():
@@ -82,6 +83,12 @@ def main():
         except Exception as e:
             shell.print_exception(e)
             sys.exit(1)
+
+    if 'daemon' in config:
+        print('The web interface can\'t work by daemon mode.')
+        sys.exit(1)
+    else:
+        web.start_with_config(config)
 
     if int(config['workers']) > 1:
         if os.name == 'posix':

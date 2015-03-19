@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block body %}
+	<ul>
+		{% for msg in messages %}
+		<li>{{ msg }}</li>
+		{% end %}
+	</ul>
+{% end %}
