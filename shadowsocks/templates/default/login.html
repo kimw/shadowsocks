@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body %}
+	<form action="/login" method="post">
+		<div>
+			<label for="username" class="label">Name</label>
+			<input type="text" name="username" class="login">
+		</div>
+		<div>
+			<label for="password" class="label">Password</label>
+			<input type="password" name="password" class="login">
+		</div>
+		<input type="hidden" name="next" value="{{ next }}">
+		<input type="submit" value="Sign in" class="button">
+	</form>
+{% end %}

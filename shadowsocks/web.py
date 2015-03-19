@@ -6,14 +6,41 @@ import tornado.web
 from tornado.options import define, options
 
 import os
+import sys
 import base64
 import datetime
 
 define('port', default=8888, help='run on the given port', type=int)
+define('addr', default='localhost', help='run on the given address', type=str)
 define('debug', default=False, help='running in debug mode', type=bool)
 
 
-class BaseHandler(tornado.web.RequestHandler): pass
+class BaseHandler(tornado.web.RequestHandler):
+    def get_current_user(self):
+        return self.get_secure_cookie('_t')
+
+
+class LoginHandler(BaseHandler):
+    def get(self):
+        if not self.get_current_user():
+            self.render('login.html', next=self.get_argument('next', '/'))
+            return
+        self.redirect('/home')
+
+    def post(self):
+        username = self.get_argument('username')
+        password = self.get_argument('password')
+        if username == 'auser' and password == 'apassword':
+            self.set_secure_cookie('_t', self.get_argument('username'))
+            self.redirect(self.get_argument('next', '/'))
+            return
+        self.redirect('/login')
+
+
+class LogoutHandler(BaseHandler):
+    def get(self):
+        self.clear_all_cookies()
+        self.redirect('/')
 
 
 class HomeHandler(BaseHandler):
@@ -22,7 +49,9 @@ class HomeHandler(BaseHandler):
 
     def get(self):
         messages = []
+
         # TODO: add some dashboard-like messages here
+
         if messages == []:
             messages = ['there\'s no any message']
         self.render('home.html', messages=messages)
@@ -32,6 +61,7 @@ class ConfigHandler(BaseHandler):
     def initialize(self, config):
         self.config = config
 
+    @tornado.web.authenticated
     def get(self):
         items = []
         if not self.config["port_password"]:
@@ -63,7 +93,6 @@ class ConfigHandler(BaseHandler):
 class PlaneConfigHandler(BaseHandler):
     def initialize(self, config):
         self.config = config
-        print('config=', config)
 
     def get(self):
         items = []
@@ -94,12 +123,13 @@ class PlaneConfigHandler(BaseHandler):
 
 
 class ControlHandler(BaseHandler):
+    @tornado.web.authenticated
     def get(self):
         self.write('<html><body>'
                    '<p>Under Construction.</p>'
                    '<p>start, stop and restart maybe coming soon.</p>'
                    '<p>you\'ll be taken to homepage in 8.388s.<br>'
-                   '(the default port number? yes! to clowwindy.)</p>'
+                   '(the default port number? yes! to some meanful.)</p>'
                    '<script type="text/javascript">'
                    'setTimeout(function(){window.location="/"}, 8388);'
                    '</script>'
@@ -109,6 +139,9 @@ class ControlHandler(BaseHandler):
 def main(config):
     handlers = [
         (r'/', HomeHandler, dict(config=config)),
+        (r'/home', HomeHandler, dict(config=config)),
+        (r'/login', LoginHandler),
+        (r'/logout', LogoutHandler),
         (r'/config', ConfigHandler, dict(config=config)),
         (r'/control', ControlHandler),
         (r'/hideme', PlaneConfigHandler, dict(config=config)),
@@ -118,11 +151,14 @@ def main(config):
                                    'templates/default'),
         static_path=os.path.join(os.path.dirname(__file__),
                                  'templates/default/assets'),
+        cookie_secret='__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__',
+        login_url='/login',
         debug=options.debug,
     )
+
     application = tornado.web.Application(handlers, **settings)
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(options.port)
+    http_server.listen(options.port, options.addr)
     tornado.ioloop.IOLoop.instance().start()
 
 
@@ -138,6 +174,7 @@ if __name__ == '__main__':
         sys.exit(1)
     options.debug = True
     options.port = 8080
+    options.addr = '0.0.0.0'
     # debug 'config' value
     config = {
         'local_port': 1080,
