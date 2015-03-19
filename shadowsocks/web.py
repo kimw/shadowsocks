@@ -16,6 +16,10 @@ define('debug', default=False, help='running in debug mode', type=bool)
 
 
 class BaseHandler(tornado.web.RequestHandler):
+    @property
+    def config(self):
+        return self.application.config
+
     def get_current_user(self):
         return self.get_secure_cookie('_t')
 
@@ -49,9 +53,6 @@ class RootHandler(BaseHandler):
 
 
 class DashboardHandler(BaseHandler):
-    def initialize(self, config):
-        self.config = config
-
     @tornado.web.authenticated
     def get(self):
         messages = []
@@ -64,9 +65,6 @@ class DashboardHandler(BaseHandler):
 
 
 class ConfigHandler(BaseHandler):
-    def initialize(self, config):
-        self.config = config
-
     @tornado.web.authenticated
     def get(self):
         items = []
@@ -97,9 +95,6 @@ class ConfigHandler(BaseHandler):
 
 
 class PlaneConfigHandler(BaseHandler):
-    def initialize(self, config):
-        self.config = config
-
     @tornado.web.authenticated
     def get(self):
         items = []
@@ -147,12 +142,12 @@ class ControlHandler(BaseHandler):
 def main(config):
     handlers = [
         (r'/', RootHandler),
-        (r'/dashboard', DashboardHandler, dict(config=config)),
+        (r'/dashboard', DashboardHandler),
         (r'/login', LoginHandler),
         (r'/logout', LogoutHandler),
-        (r'/config', ConfigHandler, dict(config=config)),
+        (r'/config', ConfigHandler),
         (r'/control', ControlHandler),
-        (r'/hideme', PlaneConfigHandler, dict(config=config)),
+        (r'/hideme', PlaneConfigHandler),
     ]
     settings = dict(
         template_path=os.path.join(os.path.dirname(__file__),
@@ -165,6 +160,7 @@ def main(config):
     )
 
     application = tornado.web.Application(handlers, **settings)
+    application.config = config
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(options.port, options.addr)
     tornado.ioloop.IOLoop.instance().start()
