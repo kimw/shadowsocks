@@ -25,7 +25,7 @@ class LoginHandler(BaseHandler):
         if not self.get_current_user():
             self.render('login.html', next=self.get_argument('next', '/'))
             return
-        self.redirect('/home')
+        self.redirect('/')
 
     def post(self):
         username = self.get_argument('username')
@@ -43,10 +43,16 @@ class LogoutHandler(BaseHandler):
         self.redirect('/')
 
 
-class HomeHandler(BaseHandler):
+class RootHandler(BaseHandler):
+    def get(self):
+        self.redirect('/dashboard')
+
+
+class DashboardHandler(BaseHandler):
     def initialize(self, config):
         self.config = config
 
+    @tornado.web.authenticated
     def get(self):
         messages = []
 
@@ -94,6 +100,7 @@ class PlaneConfigHandler(BaseHandler):
     def initialize(self, config):
         self.config = config
 
+    @tornado.web.authenticated
     def get(self):
         items = []
         if not self.config["port_password"]:
@@ -138,8 +145,8 @@ class ControlHandler(BaseHandler):
 
 def main(config):
     handlers = [
-        (r'/', HomeHandler, dict(config=config)),
-        (r'/home', HomeHandler, dict(config=config)),
+        (r'/', RootHandler),
+        (r'/dashboard', DashboardHandler, dict(config=config)),
         (r'/login', LoginHandler),
         (r'/logout', LogoutHandler),
         (r'/config', ConfigHandler, dict(config=config)),
