@@ -22,15 +22,7 @@ class HomeHandler(BaseHandler):
 
     def get(self):
         messages = []
-        if 'log-file' in self.config:
-            if os.path.exists(self.config['log-file']):
-                time = os.path.getctime(self.config['log-file'])
-                htime = datetime.datetime.fromtimestamp(int(time))
-                messages += ['server was start at %s' % htime]
-            else:
-                messages += ['log-file is not available']
-        else:
-            messages += ['log-file is not available']
+        # TODO: add some dashboard-like messages here
         if messages == []:
             messages = ['there\'s no any message']
         self.render('home.html', messages=messages)
