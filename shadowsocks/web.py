@@ -10,6 +10,10 @@ import sys
 import base64
 import datetime
 
+import http.client
+import socket
+import xmlrpc.client
+
 define('port', default=8888, help='run on the given port', type=int)
 define('addr', default='localhost', help='run on the given address', type=str)
 define('debug', default=False, help='running in debug mode', type=bool)
@@ -55,13 +59,10 @@ class RootHandler(BaseHandler):
 class DashboardHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
-        messages = []
-
-        # TODO: add some dashboard-like messages here
-
-        if messages == []:
-            messages = ['there\'s no any message']
-        self.render('home.html', messages=messages)
+        # TODO: It's currently support Python 3 only.
+        #       Add python 2 support ASAP.
+        msg = SupervisorController().get_info()
+        self.render('dashboard.html', msg=msg)
 
 
 class ConfigHandler(BaseHandler):
@@ -128,15 +129,85 @@ class PlaneConfigHandler(BaseHandler):
 class ControlHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
-        self.write('<html><body>'
-                   '<p>Under Construction.</p>'
-                   '<p>start, stop and restart maybe coming soon.</p>'
-                   '<p>you\'ll be taken to homepage in 8.388s.<br>'
-                   '(the default port number? yes! to some meanful.)</p>'
-                   '<script type="text/javascript">'
-                   'setTimeout(function(){window.location="/"}, 8388);'
-                   '</script>'
-                   '</body></html>')
+        self.render('control.html')
+
+
+class ControlStartHandler(BaseHandler):
+    def get(self):
+        m = SupervisorController().start()
+        self.redirect('/control')
+
+
+class ControlStopHandler(BaseHandler):
+    def get(self):
+        m = SupervisorController().stop()
+        self.redirect('/control')
+
+
+class ControlRestartHandler(BaseHandler):
+    def get(self):
+        m = SupervisorController().restart()
+        self.redirect('/control')
+
+
+class SupervisorController(object):
+    def __init__(self):
+        class UnixStreamHTTPConnection(http.client.HTTPConnection):
+            def connect(self):
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.connect(self.host)
+
+        class UnixStreamTransport(xmlrpc.client.Transport, object):
+            def __init__(self, socket_path):
+                self.socket_path = socket_path
+                super(UnixStreamTransport, self).__init__()
+
+            def make_connection(self, host):
+                return UnixStreamHTTPConnection(self.socket_path)
+
+        self.server = xmlrpc.client.ServerProxy(
+            'http://',
+            transport=UnixStreamTransport('/var/run/supervisor.sock'))
+
+    def get_info(self):
+        result = None
+        try:
+            r = self.server.supervisor.getProcessInfo('shadowsocks-github')
+            result = dict(
+                    name=r['name'],
+                    state=r['statename'],
+                    start=datetime.datetime.fromtimestamp(r['start']),
+                    epoch_start=r['start'],
+                    stop=datetime.datetime.fromtimestamp(r['stop']),
+                    epoch_stop=r['stop'],
+                    now=datetime.datetime.fromtimestamp(r['now']),
+                    epoch_now=r['now'],
+                    uptime='0',
+                )
+            if result['state'] == 'RUNNING':
+                result['uptime'] = result['epoch_now'] - result['epoch_start']
+        except xmlrpc.client.Fault:
+            pass
+        return result
+
+    def start(self):
+        try:
+            self.server.supervisor.startProcess('shadowsocks-github')
+        except xmlrpc.client.Fault:
+            pass
+
+    def stop(self):
+        try:
+            self.server.supervisor.stopProcess('shadowsocks-github')
+        except xmlrpc.client.Fault:
+            pass
+
+    def restart(self):
+        try:
+            self.server.supervisor.stopProcess('shadowsocks-github')
+            self.server.supervisor.startProcess('shadowsocks-github')
+        except xmlrpc.client.Fault:
+            pass
 
 
 def main(config):
@@ -147,6 +218,9 @@ def main(config):
         (r'/logout', LogoutHandler),
         (r'/config', ConfigHandler),
         (r'/control', ControlHandler),
+        (r'/control/start', ControlStartHandler),
+        (r'/control/stop', ControlStopHandler),
+        (r'/control/restart', ControlRestartHandler),
         (r'/hideme', PlaneConfigHandler),
     ]
     settings = dict(
