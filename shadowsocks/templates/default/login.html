@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block body %}
+	{% if message %}
+	<div class="message">{{ message }}</div>
+	{% end %}
 	<form action="/login" method="post">
 		<div>
 			<label for="username" class="label">Name</label>

@@ -38,9 +38,17 @@ class BaseHandler(tornado.web.RequestHandler):
 
 
 class LoginHandler(BaseHandler):
+    def initialize(self):
+        if self.request.method == 'GET':
+            self.first_time_login = True
+        else:
+            self.first_time_login = False
+        BaseHandler.initialize(self)
+
     def get(self):
         if not self.get_current_user():
-            self.render('login.html', next=self.get_argument('next', '/'))
+            self.render('login.html', message=None,
+                    next=self.get_argument('next', '/'))
             return
         self.redirect('/')
 
@@ -73,8 +81,11 @@ class LoginHandler(BaseHandler):
                 (username, password))
             self.conn.commit()
             self.set_secure_cookie('_t', self.get_argument('username'))
+            self.redirect(self.get_argument('next', '/'))
+            return
 
-        self.redirect(self.get_argument('next', '/'))
+        self.render('login.html', message='login error',
+                next=self.get_argument('next', '/'))
 
 
 class LogoutHandler(BaseHandler):
