@@ -9,6 +9,7 @@ import os
 import sys
 import base64
 import datetime
+import sqlite3
 
 import http.client
 import socket
@@ -20,6 +21,14 @@ define('debug', default=False, help='running in debug mode', type=bool)
 
 
 class BaseHandler(tornado.web.RequestHandler):
+    def initialize(self):
+        self.conn = sqlite3.connect('ssweb.db')
+        self.conn.execute(
+            'CREATE TABLE IF NOT EXISTS users ( '
+            '    id INTEGER PRIMARY KEY AUTOINCREMENT, '
+            '    username NOT NULL UNIQUE, '
+            '    password NOT NULL)')
+
     @property
     def config(self):
         return self.application.config
@@ -36,13 +45,36 @@ class LoginHandler(BaseHandler):
         self.redirect('/')
 
     def post(self):
+        from hashlib import sha256
+
         username = self.get_argument('username')
-        password = self.get_argument('password')
-        if username == 'auser' and password == 'apassword':
+        password = sha256(self.get_argument('password')
+                    .encode('utf8')).hexdigest()
+
+        self.conn.row_factory = sqlite3.Row
+        cur = self.conn.cursor()
+        cur.execute('SELECT username, password FROM users '
+                    'WHERE username=? AND password=?', (username, password))
+        row = cur.fetchone()
+        if row:
             self.set_secure_cookie('_t', self.get_argument('username'))
             self.redirect(self.get_argument('next', '/'))
             return
-        self.redirect('/login')
+
+        cur.execute('SELECT COUNT(*) AS count FROM users')
+        row = cur.fetchone()
+        if (row['count'] == 0 and self.get_argument('password')
+                                  == config['password'].decode('utf8')):
+            # Create account by password in the config file,
+            #   while first time login
+            password = sha256(config['password']).hexdigest()
+            cur.execute(
+                'INSERT INTO users (username, password) VALUES(?, ?)',
+                (username, password))
+            self.conn.commit()
+            self.set_secure_cookie('_t', self.get_argument('username'))
+
+        self.redirect(self.get_argument('next', '/'))
 
 
 class LogoutHandler(BaseHandler):
