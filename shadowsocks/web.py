@@ -275,6 +275,7 @@ def main(config):
                                  'templates/default/assets'),
         cookie_secret='__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__',
         login_url='/login',
+        xsrf_cookies=True,
         debug=options.debug,
     )
 

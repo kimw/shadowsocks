@@ -5,6 +5,7 @@
 	<div class="message">{{ message }}</div>
 	{% end %}
 	<form action="/login" method="post">
+		{% module xsrf_form_html() %}
 		<div>
 			<label for="username" class="label">Name</label>
 			<input type="text" name="username" class="login">
