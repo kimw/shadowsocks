@@ -7,10 +7,10 @@
 	<body>
 		<div id="body">
 			<div id="header">
-				<a href="/dashboard">Dashboard</a> |
-				<a href="/config">Config</a> |
-				<a href="/control">Control</a> |
-				<a href="/logout">Logout</a>
+				<a href="{{ base_url }}/dashboard">Dashboard</a> |
+				<a href="{{ base_url }}/config">Config</a> |
+				<a href="{{ base_url }}/control">Control</a> |
+				<a href="{{ base_url }}/logout">Logout</a>
 			</div>
 			<div id="content">{% block body %}{% end %}</div>
 			<div id="time_now">@{{ datetime.datetime.utcnow() }}</div>

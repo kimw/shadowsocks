@@ -28,6 +28,7 @@ define('cookie_secret', type=str, default=None,
             'signature.\n'
             'You can create this HMAC string with --hmac option.')
 define('hmac', type=None, default=False, help='create a HMAC string')
+define('base_url', type=str, default='', help='TODO')
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -45,6 +46,15 @@ class BaseHandler(tornado.web.RequestHandler):
 
     def get_current_user(self):
         return self.get_secure_cookie('_t')
+
+    def redirect(self, url, permanent=False, status=None):
+        if url[:len(options.base_url)] != options.base_url:
+            url = options.base_url + url
+        tornado.web.RequestHandler.redirect(self, url, permanent, status)
+
+    def render(self, template_name, **kwargs):
+        kwargs['base_url'] = options.base_url
+        tornado.web.RequestHandler.render(self, template_name, **kwargs)
 
 
 class LoginHandler(BaseHandler):
@@ -279,22 +289,23 @@ def main(config):
         options.cookie_secret = hmac_sha(randstr(1000), randstr(1000), 'sha512')
 
     handlers = [
-        (r'/', RootHandler),
-        (r'/dashboard', DashboardHandler),
-        (r'/login', LoginHandler),
-        (r'/logout', LogoutHandler),
-        (r'/config', ConfigHandler),
-        (r'/control', ControlHandler),
-        (r'/control/start', ControlStartHandler),
-        (r'/control/stop', ControlStopHandler),
-        (r'/control/restart', ControlRestartHandler),
-        (r'/hideme', PlaneConfigHandler),
+        (options.base_url + r'/', RootHandler),
+        (options.base_url + r'/dashboard', DashboardHandler),
+        (options.base_url + r'/login', LoginHandler),
+        (options.base_url + r'/logout', LogoutHandler),
+        (options.base_url + r'/config', ConfigHandler),
+        (options.base_url + r'/control', ControlHandler),
+        (options.base_url + r'/control/start', ControlStartHandler),
+        (options.base_url + r'/control/stop', ControlStopHandler),
+        (options.base_url + r'/control/restart', ControlRestartHandler),
+        (options.base_url + r'/hideme', PlaneConfigHandler),
     ]
     settings = dict(
         template_path=os.path.join(os.path.dirname(__file__),
                                    'templates/default'),
         static_path=os.path.join(os.path.dirname(__file__),
                                  'templates/default/assets'),
+        static_url_prefix=options.base_url+'/static/',
         cookie_secret=options.cookie_secret,
         login_url='/login',
         xsrf_cookies=True,
@@ -360,6 +371,7 @@ if __name__ == '__main__':
         options.addr = '0.0.0.0'
         options.servicename = 'shadowsocks-github'
         options.cookie_secret = hmac_sha(randstr(), randstr())
+        options.base_url = r'/ssweb'
         # debug 'config' value
         config = {
             'local_port': 1080,

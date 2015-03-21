@@ -4,7 +4,7 @@
 	{% if message %}
 	<div class="message">{{ message }}</div>
 	{% end %}
-	<form action="/login" method="post">
+	<form action="{{ base_url }}/login" method="post">
 		{% module xsrf_form_html() %}
 		<div>
 			<label for="username" class="label">Name</label>
