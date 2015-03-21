@@ -18,6 +18,8 @@ import xmlrpc.client
 define('port', default=8888, help='run on the given port', type=int)
 define('addr', default='localhost', help='run on the given address', type=str)
 define('debug', default=False, help='running in debug mode', type=bool)
+define('servicename', default='shadowsocks',
+       help='shadowsocks\'s service name in supervisor', type=str)
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -215,7 +217,7 @@ class SupervisorController(object):
     def get_info(self):
         result = None
         try:
-            r = self.server.supervisor.getProcessInfo('shadowsocks-github')
+            r = self.server.supervisor.getProcessInfo(options.servicename)
             result = dict(
                     name=r['name'],
                     state=r['statename'],
@@ -235,20 +237,20 @@ class SupervisorController(object):
 
     def start(self):
         try:
-            self.server.supervisor.startProcess('shadowsocks-github')
+            self.server.supervisor.startProcess(options.servicename)
         except xmlrpc.client.Fault:
             pass
 
     def stop(self):
         try:
-            self.server.supervisor.stopProcess('shadowsocks-github')
+            self.server.supervisor.stopProcess(options.servicename)
         except xmlrpc.client.Fault:
             pass
 
     def restart(self):
         try:
-            self.server.supervisor.stopProcess('shadowsocks-github')
-            self.server.supervisor.startProcess('shadowsocks-github')
+            self.server.supervisor.stopProcess(options.servicename)
+            self.server.supervisor.startProcess(options.servicename)
         except xmlrpc.client.Fault:
             pass
 
@@ -296,6 +298,7 @@ if __name__ == '__main__':
     options.debug = True
     options.port = 8080
     options.addr = '0.0.0.0'
+    options.servicename = 'shadowsocks-github'
     # debug 'config' value
     config = {
         'local_port': 1080,
