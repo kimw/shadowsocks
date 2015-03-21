@@ -10,16 +10,24 @@ import sys
 import base64
 import datetime
 import sqlite3
+import hmac, random
+from hashlib import md5, sha224, sha256, sha512
 
 import http.client
 import socket
 import xmlrpc.client
 
-define('port', default=8888, help='run on the given port', type=int)
-define('addr', default='localhost', help='run on the given address', type=str)
-define('debug', default=False, help='running in debug mode', type=bool)
-define('servicename', default='shadowsocks',
-       help='shadowsocks\'s service name in supervisor', type=str)
+define('port', type=int, default=8888, help='run on the given port')
+define('addr', type=str, default='localhost', help='run on the given address')
+define('debug', type=bool, default=False, help='running in debug mode')
+define('servicename', type=str, default='shadowsocks',
+       help='shadowsocks\'s service name in supervisor')
+define('cookie_secret', type=str, default=None,
+       help='You must specify the cookie_secret option. It should be a long, '
+            'random sequence of bytes to be used as the HMAC secret for the '
+            'signature.\n'
+            'You can create this HMAC string with --hmac option.')
+define('hmac', type=None, default=False, help='create a HMAC string')
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -55,8 +63,6 @@ class LoginHandler(BaseHandler):
         self.redirect('/')
 
     def post(self):
-        from hashlib import sha256
-
         username = self.get_argument('username')
         password = sha256(self.get_argument('password')
                     .encode('utf8')).hexdigest()
@@ -197,6 +203,7 @@ class ControlRestartHandler(BaseHandler):
 
 class SupervisorController(object):
     def __init__(self):
+
         class UnixStreamHTTPConnection(http.client.HTTPConnection):
             def connect(self):
                 self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -256,6 +263,21 @@ class SupervisorController(object):
 
 
 def main(config):
+    if not options.cookie_secret:
+        import logging
+        logging.warn('\n\n\t\t!!! WARNNING !!!\n\n'
+              'You must specify the cookie_secret option. It should be a long, '
+              'random sequence of bytes to be used as the HMAC secret for the '
+              'signature.\n\n'
+              'To keep the Shadowsocks Web Interface runable as always it be, '
+              'it\'s signed by a random cookie_secret option. Yes, this chould '
+              'keep the service runable, but also effects the users have to '
+              're-login every time the system administrator restart the '
+              'service or reboot the system. YOU ARE NOTICED.\n\n'
+              'You can create this HMAC string by typing following on server:\n'
+              '\t%s --hmac' % sys.argv[0])
+        options.cookie_secret = hmac_sha(randstr(1000), randstr(1000), 'sha512')
+
     handlers = [
         (r'/', RootHandler),
         (r'/dashboard', DashboardHandler),
@@ -273,7 +295,7 @@ def main(config):
                                    'templates/default'),
         static_path=os.path.join(os.path.dirname(__file__),
                                  'templates/default/assets'),
-        cookie_secret='__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__',
+        cookie_secret=options.cookie_secret,
         login_url='/login',
         xsrf_cookies=True,
         debug=options.debug,
@@ -285,10 +307,36 @@ def main(config):
     http_server.listen(options.port, options.addr)
     tornado.ioloop.IOLoop.instance().start()
 
-
 def start_with_config(config):
     tornado.options.parse_command_line('')
     main(config)
+
+def hmac_sha(key, msg, type='sha224'):
+    if type == 'md5':
+        hmacstr = hmac.HMAC(key.encode('utf8'), msg.encode('utf8'),
+                            md5).hexdigest()
+        return hmacstr
+    elif type == 'sha224':
+        hmacstr = hmac.HMAC(key.encode('utf8'), msg.encode('utf8'),
+                            sha224).hexdigest()
+        return hmacstr
+    elif type == 'sha256':
+        hmacstr = hmac.HMAC(key.encode('utf8'), msg.encode('utf8'),
+                            sha256).hexdigest()
+        return hmacstr
+    elif type == 'sha512':
+        hmacstr = hmac.HMAC(key.encode('utf8'), msg.encode('utf8'),
+                            sha512).hexdigest()
+        return hmacstr
+    else:
+        return None
+
+def randstr(leng=50):
+    return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz'
+                                 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                                 '0123456789'
+                                 '')
+                    for i in range(leng))
 
 
 if __name__ == '__main__':
@@ -296,25 +344,41 @@ if __name__ == '__main__':
         tornado.options.parse_command_line()
     except tornado.options.Error:
         sys.exit(1)
-    options.debug = True
-    options.port = 8080
-    options.addr = '0.0.0.0'
-    options.servicename = 'shadowsocks-github'
-    # debug 'config' value
-    config = {
-        'local_port': 1080,
-        'method': 'aes-256-cfb',
-        'fast_open': False,
-        'log-file': '/var/log/shadowsocks.log',
-        'local_address': '127.0.0.1',
-        'server_port': 8388,
-        'timeout': 300,
-        'pid-file': '/var/run/shadowsocks.pid',
-        'server': '0.0.0.0',
-        'password': b'ual3kiideiwahwee7Uyiehu7feitag2uuvahsahgai1oph5lee',
-        'verbose': False,
-        'workers': 1,
-        'port_password': {
-            '8389': b'ual3kiideiwahwee7Uyiehu7feitag2uuvahsahgai1oph5lee',
-            '8388': b'fei5Ahzacohchohraquie5bopho3xa9be2ies5Pi8aegoongoh'}}
-    main(config)
+
+    if len(sys.argv) == 2 and sys.argv[1] == '--hmac':
+
+        key = randstr()
+        msg = randstr()
+        print('HMAC-MD5    ( 32 bits): %s' % hmac_sha(key, msg, 'md5'))
+        print('HMAC-SHA224 ( 56 bits): %s' % hmac_sha(key, msg, 'sha224'))
+        print('HMAC-SHA256 ( 64 bits): %s' % hmac_sha(key, msg, 'sha256'))
+        print('HMAC-SHA512 (128 bits): %s' % hmac_sha(key, msg, 'sha512'))
+
+    elif len(sys.argv) == 2 and sys.argv[1] == '--debug':
+        options.debug = True
+        options.port = 8080
+        options.addr = '0.0.0.0'
+        options.servicename = 'shadowsocks-github'
+        options.cookie_secret = hmac_sha(randstr(), randstr())
+        # debug 'config' value
+        config = {
+            'local_port': 1080,
+            'method': 'aes-256-cfb',
+            'fast_open': False,
+            'log-file': '/var/log/shadowsocks.log',
+            'local_address': '127.0.0.1',
+            'server_port': 8388,
+            'timeout': 300,
+            'pid-file': '/var/run/shadowsocks.pid',
+            'server': '0.0.0.0',
+            'password': b'ual3kiideiwahwee7Uyiehu7feitag2uuvahsahgai1oph5lee',
+            'verbose': False,
+            'workers': 1,
+            'port_password': {
+                '8389': b'ual3kiideiwahwee7Uyiehu7feitag2uuvahsahgai1oph5lee',
+                '8388': b'fei5Ahzacohchohraquie5bopho3xa9be2ies5Pi8aegoongoh'}}
+        main(config)
+
+    else:
+        tornado.options.print_help()
+        sys.exit(0)
