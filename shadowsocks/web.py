@@ -20,6 +20,7 @@ import xmlrpc.client
 define('port', type=int, default=8888, help='run on the given port')
 define('addr', type=str, default='localhost', help='run on the given address')
 define('debug', type=bool, default=False, help='running in debug mode')
+define('demo', type=bool, default=False, help='running in demo mode')
 define('servicename', type=str, default='shadowsocks',
        help='shadowsocks\'s service name in supervisor')
 define('cookie_secret', type=str, default=None,
@@ -342,7 +343,7 @@ def hmac_sha(key, msg, type='sha224'):
     else:
         return None
 
-def randstr(leng=50):
+def randomstr(leng=50):
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz'
                                  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                                  '0123456789'
@@ -358,18 +359,18 @@ if __name__ == '__main__':
 
     if len(sys.argv) == 2 and sys.argv[1] == '--hmac':
 
-        key = randstr()
-        msg = randstr()
+        key = randomstr()
+        msg = randomstr()
         print('HMAC-MD5    ( 32 bits): %s' % hmac_sha(key, msg, 'md5'))
         print('HMAC-SHA224 ( 56 bits): %s' % hmac_sha(key, msg, 'sha224'))
         print('HMAC-SHA256 ( 64 bits): %s' % hmac_sha(key, msg, 'sha256'))
         print('HMAC-SHA512 (128 bits): %s' % hmac_sha(key, msg, 'sha512'))
 
-    elif len(sys.argv) == 2 and sys.argv[1] == '--debug':
-        options.debug = True
+    elif len(sys.argv) == 2 and sys.argv[1] == '--demo':
+        # options.debug = True
         options.port = 8080
         options.addr = '0.0.0.0'
-        options.servicename = 'shadowsocks-github'
+        options.servicename = 'shadowsocks-dev'
         options.cookie_secret = hmac_sha(randstr(), randstr())
         options.base_url = r'/ssweb'
         # debug 'config' value
